@@ -1,16 +1,17 @@
 # Wipeable Monorepo
 
-This repository contains the full Wipeable platform: a secure data wipe engine, backend APIs, desktop clients, enterprise client, and marketing/product website.
+This repository contains the full Wipeable platform: a secure data wipe engine, backend APIs, desktop clients, enterprise client, certification generator/signing module, and marketing/product website.
 
 ## Repository Overview
 
-The workspace is organized into five main applications:
+The workspace is organized into six main applications/modules:
 
 1. `Wipe-Engine` (Rust): low-level, cross-platform storage wipe engine.
 2. `Wipeable-Backend` (Node.js/Express): API layer, request context, validation, and controller dispatch.
 3. `Wipeable-Desktop` (Electron + Next.js): desktop product shell and operator UI.
 4. `Wipeable-Enterprise` (Electron + Next.js): enterprise variant of the desktop shell and UI.
 5. `Wipeable-Website` (Next.js + MUI): web experience, landing pages, dashboard blocks, and shared UI building blocks.
+6. `Certification-Module` (Node.js): NIST-style PDF certificate generation, QR embedding, and digital signature workflow.
 
 ## SIH 2025 Resources
 
@@ -41,6 +42,10 @@ flowchart TD
 	P --> H
 
 	B --> A[Audit Trail + Certificate Metadata]
+	A --> M[Certification Module PDF + Digital Signature]
+	M --> W
+	M --> D
+	M --> E
 	A --> W
 	A --> D
 	A --> E
@@ -49,6 +54,8 @@ flowchart TD
 ## SIH 2025 Project Details
 
 Wipeable is positioned as a secure device sanitization and compliance platform under SIH 2025, aimed at institutions and enterprises that need:
+
+Wipeable bridges the gap between raw hardware operations and enterprise security policies. By pairing a high-performance Rust execution engine with a centralized Node.js and Next.js control plane, Wipeable enables organizations to securely execute, orchestrate, and mathematically verify irreversible data destruction across their IT infrastructure.
 
 - irreversible data destruction before asset reuse/disposal,
 - centralized orchestration for multiple wipe jobs,
@@ -106,6 +113,7 @@ This workspace already contains strong building blocks, with a mix of implemente
 | Security middleware hooks | Implemented scaffold, policy hardening ongoing |
 | Desktop/Enterprise operator UI | Implemented screens, currently prototype-heavy |
 | Jobs/verification/certificates dashboards | Implemented as rich UI modules with mock data |
+| Certificate PDF generation and signing module | Implemented as standalone Node.js module |
 | End-to-end engine invocation from all UI modules | Integration path defined, completion in progress |
 | Persisted certificate lifecycle and immutable audit logs | Partially designed, production persistence pending |
 
@@ -182,6 +190,22 @@ How it works:
 5. Controller resolves API method name from URL and executes it.
 6. Responses are normalized through `ResHelper`.
 
+### `Certification-Module/`
+
+Node.js utility module for compliance certificate generation and signing.
+
+- `generateAndSign.js`: creates a formatted NIST SP 800-88 certificate PDF.
+- Embeds certificate metadata fields and a QR code payload (serial + hash).
+- Adds a digital signature placeholder and signs the PDF using a `.p12` certificate.
+
+How it works:
+
+1. Builds a new PDF with media sanitization metadata.
+2. Embeds QR code evidence into the certificate.
+3. Saves the unsigned PDF output.
+4. Loads PKCS#12 (`cert.p12`) key material and signs the certificate.
+5. Writes a signed PDF for audit/compliance sharing.
+
 ### `Wipeable-Desktop/`
 
 Desktop app packaging a Next.js frontend inside Electron.
@@ -230,7 +254,8 @@ Typical intended platform flow:
 2. UI calls backend APIs for validation, session, and job orchestration.
 3. Backend verifies security context and dispatches corresponding controller method.
 4. Wipe engine performs the selected sanitization scheme on target storage.
-5. Status/progress and final report/certificate are returned to UI.
+5. Certification module generates a certificate artifact and applies digital signature.
+6. Status/progress and final report/certificate are returned to UI.
 
 ## Local Setup
 
@@ -300,6 +325,15 @@ npm install
 npm run dev
 ```
 
+### 6) Run Certification Module
+
+```bash
+cd Certification-Module
+npm install
+# Ensure cert.p12 exists and passphrase is configured in generateAndSign.js
+node generateAndSign.js
+```
+
 ## Important Safety Note
 
 The wipe engine performs irreversible destructive writes. Always verify device identifiers carefully before running `wipe` commands.
@@ -310,4 +344,5 @@ The wipe engine performs irreversible destructive writes. Always verify device i
 2. Start desktop/enterprise frontend.
 3. Connect UI actions to backend endpoints.
 4. Integrate backend wipe controller with `Wipe-Engine` process execution.
-5. Add certificate/report persistence and audit trail.
+5. Integrate certification module outputs with backend certificate APIs.
+6. Add certificate/report persistence and audit trail.
