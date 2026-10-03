@@ -250,7 +250,7 @@ sequenceDiagram
 
 1. **Environment**: `server.js` loads `env/.env.<region>.<env>` from `ECS_REGION` and `ECS_ENV`.
 2. **Context**: `routes.js` opens an `AsyncLocalStorage` scope per request, storing `requestId` (from `mnh-x-request-id` header or a new UUID), the API function name parsed from the URL, request start time, and the client short name (`csn`, taken from the host sub-domain or `LOCALHOST_CSN`).
-3. **Security**: `api-security` validates the microservice token or session before the controller runs.
+3. **Security**: `api-security` extracts the bearer token into the request context before the controller runs. RS256 JWT verification and client-name matching are written but currently commented out, so requests are **not yet authenticated**.
 4. **Dispatch**: `BaseController.execute()` maps the URL function name to a controller method and throws `resourceNotFound` for unknown names. Subclasses define one method per API action and validate input with Joi through `validateInputParameters`.
 5. **Response**: every result and error is normalized by `ResHelper` into `{ status, message, data, ts, requestId, v }`.
 
@@ -274,7 +274,7 @@ flowchart LR
     MN --> UI
 ```
 
-The renderer never touches the filesystem or the engine directly. Only whitelisted calls exposed in `preload.js` reach the main process.
+The renderer never touches the filesystem or the engine directly. Only whitelisted calls exposed in `preload.js` reach the main process. The `wipe-device` handler in `main.js` is currently a stub; the engine spawn is the planned integration point.
 
 ### Website structure
 
@@ -317,7 +317,8 @@ See `Wipe-Engine/ARCHITECTURE.md`, `ALGORITHM.md`, `DATA_FLOW.md`, and `COMMAND_
 - Verification options (`no`, `last`, `all`) trade speed for assurance.
 - Certificates follow NIST SP 800-88 style reporting; schemes include DoD 5220.22-M and VSITR.
 - Planned: administrator controls, encrypted logs, export governance, role-based approvals.
-- **Signing keys**: `Certification-Module` contains `cert.p12`, `cert.pem`, and `key.pem`. Treat these as development-only placeholders; never commit production keys, and load passphrases from environment variables.
+- **Signing keys**: `Certification-Module` contains `cert.p12`, `cert.pem`, and `key.pem`, and `generateAndSign.js` hardcodes a placeholder passphrase. Treat these as development-only; never commit production keys, and load the passphrase from an environment variable.
+- **API authentication**: backend JWT verification is scaffolded but disabled (see [Backend request lifecycle](#backend-request-lifecycle)); enable it before any real deployment.
 
 ## Implementation Status
 
@@ -359,6 +360,7 @@ cargo run -- list
 | `-v, --verify` | `no`, `last`, `all` | `last` |
 | `-b, --blocksize` | 512 B to 64 MB (`4k`, `1m`) | `1m` |
 | `-o, --offset` | bytes (`1g`, `100m`) | `0` |
+| `--retries` | max retries per failed block | engine default |
 
 ### Backend
 
